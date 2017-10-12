@@ -1,0 +1,16 @@
+- name: Install Dependencies
+  hosts: all
+  roles: 
+      - install-dependencies
+
+
+- name: Java-App-Host Preparation
+  hosts: java-hosts
+  roles:
+      - java-setup
+
+
+- name: Kafka-Host Preparation
+  hosts: kafka-hosts
+  roles:
+      - kafka-setup

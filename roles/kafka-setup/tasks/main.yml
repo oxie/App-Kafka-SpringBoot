@@ -1,0 +1,89 @@
+---
+- name: Create kafka group
+  group:
+    name: kafka
+    gid: 1050
+    state: present
+
+- name: Create kafka user
+  user:
+    name: kafka
+    comment: "Kafka default user"
+    uid: 1050
+    group: kafka
+    groups: kafka,root
+    password: kafka
+    createhome: yes
+    state: present
+
+- name: Creating /opt/kafka
+  file:
+    path: /opt/kafka/
+    state: directory
+    owner: kafka
+    group: kafka
+    mode: 0755
+
+- name: Download Kafka - 0.10.2.1
+  get_url:
+    url: http://www-us.apache.org/dist/kafka/0.10.2.1/kafka_2.12-0.10.2.1.tgz
+    dest: /home/kafka/
+
+- name: Unarchive the kafka files
+  shell: "tar -zxvf /home/kafka/kafka_2.12-0.10.2.1.tgz -C /home/kafka/"
+
+- name: Ensure /opt/kafka/ is empty
+  shell: "rm -rf /opt/kafka/*"
+
+- name: Move kafka to /opt/kafka/
+  shell: "mv /home/kafka/kafka_2.12-0.10.2.1/* /opt/kafka/"
+
+- name: Export Env Variables for Kafka
+  lineinfile: dest=/home/kafka/.bash_profile line='{{ item }}' insertafter='EOF' state=present
+  with_items:
+   - export KAFKA_HEAP_OPTS="-Xmx512M -Xms32M"
+
+- name: Source the ENV Variable to /home/kafka/.bash_profile
+  shell: source /home/kafka/.bash_profile
+
+- name: Change Port for Kafka Broker EnvPoint
+  replace:
+    dest=/opt/kafka/config/server.properties
+    regexp='#listeners=PLAINTEXT://:9092'
+    replace='listeners=PLAINTEXT://:8080'
+
+- name: Set Permissions to /tmp/
+  file:
+     path: /tmp/kafka-logs/
+     owner: kafka
+     group: kafka
+     mode: 0755
+     recurse: yes
+
+- name: Set Permissions to /tmp/
+  file:
+     path: /tmp/zookeeper/
+     owner: kafka
+     group: kafka
+     mode: 0755
+     recurse: yes
+
+- name: Start Zookeeper Service
+  shell: 'su - kafka -c "nohup /opt/kafka/bin/zookeeper-server-start.sh -daemon /opt/kafka/config/zookeeper.properties > /home/kafka/zookeeper.log &"'
+
+- name: Start Kafka Service
+  shell: 'su - kafka -c "nohup /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties > /home/kafka/zookeeper.log &"'
+
+- name: Kafka Create Topic demo.topic
+  shell: 'su - kafka -c "/opt/kafka/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic demo.topic"'
+  ignore_errors: yes
+
+- name: Test Current Configuration and Messeging
+  shell: "curl http://10.128.64.68:8080/send?message=BetVictor-Dev-Ops"
+  ignore_errors: yes
+  delay: 15
+
+- name: Lets see whats comming back on Kafka consumer
+  shell: "/opt/kafka/bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic demo.topic --from-beginning"
+#  delay: 25
+  ignore_errors: yes

@@ -1,0 +1,49 @@
+---
+- name: Create betvictor group
+  group:
+    name: betvictor
+    gid: 1050
+    state: present
+
+- name: Create betvictor user
+  user:
+    name: betvictor
+    comment: "BetVictor default user"
+    uid: 1050
+    group: betvictor
+    password: betvictor
+    createhome: yes
+    state: present
+
+- name: touch start-java.sh
+  shell: "touch /home/betvictor/start-java.sh"
+
+- name: Export JAVA STARTUP SCRIPT WITH OPTIONS
+  lineinfile: dest=/home/betvictor/start-java.sh line='{{ item }}' insertafter='EOF' state=present
+  with_items:
+   - _JAVA_OPTIONS="-Dmax.connections.per.ip=2 -Dkafka.topic=demo.topic -Djsa.kafka.topic=demo.topic -Djsa.kafka.bootstrap-servers=10.128.64.175:8080 -Djsa.kafka.consumer.group-id=demo-group -Dmessage.max.bytes=119572585 -Dspring.kafka.producer.acks=1 -Dspring.kafka.producer.batch-size=33554432 -Dspring.kafka.producer.bootstrap-servers=10.128.64.175:8080 -Dspring.kafka.producer.client-id=1 -Dport=8080 -Dspring.kafka.producer.bootstrap-servers=10.128.64.175:8080 -Dcompression.type=gzip -Dproducer.type=sync -Dbatch.size=200 -Dmax.message.bytes=1000000" java -jar /home/betvictor/*.jar &
+   - disown
+
+- name: Ansible find where demo jar is located in /home/ directory
+  find:
+    paths: /home
+    patterns: "*.jar"
+    recurse: yes
+  register: java_demo_jar
+
+- name: Move demo_jar to betvictor home dir
+  shell: "cp -f {{ java_demo_jar.files[0].path }} /home/betvictor/"
+  ignore_errors: yes
+
+- name: Set Permissions to jar file
+  file:
+     path: /home/betvictor/
+     owner: betvictor
+     group: betvictor
+     mode: 0755
+     recurse: yes
+
+- name: Start BETVICTOR JAVA PRODUCER Service / OUTPUT > server.log
+  shell: "sudo su - betvictor -c '/home/betvictor/start-java.sh > server.log 2>&1'"
+  args:
+    executable: "/bin/bash"

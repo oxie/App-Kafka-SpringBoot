@@ -1,0 +1,5 @@
+[java-hosts]
+35.177.17.33 ansible_ssh_user=root ansible_become_method=sudo ansible_connection=ssh
+
+[kafka-hosts]
+52.56.113.143 ansible_ssh_user=root ansible_become_method=sudo ansible_connection=ssh
