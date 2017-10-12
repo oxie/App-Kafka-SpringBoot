@@ -52,12 +52,30 @@
     regexp='#listeners=PLAINTEXT://:9092'
     replace='listeners=PLAINTEXT://:8080'
 
+- name: touch consumer log file
+  shell: "touch /tmp/kafka-consumer.log"
+
+- name: Set Permissions to /tmp/
+  file:
+     path: /tmp/kafka-consumer.log
+     owner: kafka
+     group: kafka
+     mode: 0750
+
 - name: Set Permissions to /tmp/
   file:
      path: /tmp/kafka-logs/
      owner: kafka
      group: kafka
-     mode: 0755
+     mode: 0750
+     recurse: yes
+
+- name: Set Permissions to /opt/kafka
+  file:
+     path: /opt/kafka/
+     owner: kafka
+     group: kafka
+     mode: 0750
      recurse: yes
 
 - name: Set Permissions to /tmp/
@@ -65,14 +83,34 @@
      path: /tmp/zookeeper/
      owner: kafka
      group: kafka
-     mode: 0755
+     mode: 0750
      recurse: yes
+
+- name: Ensure Permissions to /home/kafka
+  file:
+     path: /home/kafka/
+     owner: kafka
+     group: kafka
+     mode: 0750
+     recurse: yes
+
 
 - name: Start Zookeeper Service
   shell: 'su - kafka -c "nohup /opt/kafka/bin/zookeeper-server-start.sh -daemon /opt/kafka/config/zookeeper.properties > /home/kafka/zookeeper.log &"'
 
+- name: Wait for ZK start
+  wait_for:
+    delay: 10
+    timeout: 30
+
 - name: Start Kafka Service
   shell: 'su - kafka -c "nohup /opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties > /home/kafka/zookeeper.log &"'
+
+- name: Wait for Kafka start
+  wait_for:
+    delay: 10
+    timeout: 30
+
 
 - name: Kafka Create Topic demo.topic
   shell: 'su - kafka -c "/opt/kafka/bin/kafka-topics.sh --create --zookeeper localhost:2181 --replication-factor 1 --partitions 1 --topic demo.topic"'
@@ -81,9 +119,4 @@
 - name: Test Current Configuration and Messeging
   shell: "curl http://10.128.64.68:8080/send?message=BetVictor-Dev-Ops"
   ignore_errors: yes
-  delay: 15
-
-- name: Lets see whats comming back on Kafka consumer
-  shell: "/opt/kafka/bin/kafka-console-consumer.sh --zookeeper localhost:2181 --topic demo.topic --from-beginning"
-#  delay: 25
-  ignore_errors: yes
+#  delay: 15
